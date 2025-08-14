@@ -1,0 +1,460 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  VOLUNTEER
+  NGO
+  CSR_PARTNER
+  SUPER_ADMIN
+}
+
+enum DriveType {
+  ONGROUND
+  VIRTUAL
+  HYBRID
+}
+
+enum DriveStatus {
+  DRAFT
+  PUBLISHED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  CHECKED_IN
+  CHECKED_OUT
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+enum VolunteerLevel {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum CauseArea {
+  ENVIRONMENT
+  CHILD_EDUCATION
+  HEALTH
+  SENIOR_CITIZENS
+  WOMEN_EMPOWERMENT
+  ANIMAL_WELFARE
+  DISASTER_RELIEF
+  RURAL_DEVELOPMENT
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  FUNDED
+  COMPLETED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  mobile        String?  @unique
+  password      String?
+  role          UserRole @default(VOLUNTEER)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Profile data
+  bio           String?
+  location      String?
+  interests     CauseArea[]
+  availability  Json?     // Flexible calendar data
+
+  // Volunteer specific
+  level         VolunteerLevel @default(BRONZE)
+  totalHours    Float          @default(0)
+  points        Int            @default(0)
+  avgRating     Float?
+  referralCount Int            @default(0)
+
+  // NGO specific
+  ngoProfile    NGOProfile?
+
+  // CSR Partner specific
+  csrProfile    CSRProfile?
+
+  // Relations
+  registrations Registration[]
+  reviews       Review[]
+  referrals     Referral[]    @relation("Referrer")
+  referredBy    Referral[]    @relation("Referee")
+  certificates  Certificate[]
+  badges        UserBadge[]
+  documents     Document[]
+
+  @@map("users")
+}
+
+model NGOProfile {
+  id                      String      @id @default(cuid())
+  userId                  String      @unique
+  user                    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  organizationName        String
+  registrationNumber      String?     @unique
+  causes                  CauseArea[]
+  locations               String[]    // JSON array of locations
+  description             String?
+  website                 String?
+  foundedYear             Int?
+  teamSize                Int?
+  
+  // Compliance documents
+  has12A                  Boolean     @default(false)
+  has80G                  Boolean     @default(false)
+  hasFCRA                 Boolean     @default(false)
+  isCSREligible          Boolean     @default(false)
+  
+  // Bank details
+  bankName                String?
+  accountNumber           String?
+  ifscCode                String?
+  panNumber               String?
+  
+  // Scores
+  profileCompletenessScore Int        @default(0)
+  transparencyScore        Int        @default(0)
+  
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+  
+  // Relations
+  drives                  Drive[]
+  reviews                 Review[]
+  csrApplications         CSRApplication[]
+  allocationScores        AllocationScore[]
+  
+  @@map("ngo_profiles")
+}
+
+model CSRProfile {
+  id              String      @id @default(cuid())
+  userId          String      @unique
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  companyName     String
+  industry        String?
+  focusCauses     CauseArea[]
+  geographies     String[]    // JSON array of focus geographies
+  companySize     String?
+  website         String?
+  description     String?
+  
+  // Compliance
+  cinNumber       String?     @unique
+  panNumber       String?
+  gstin           String?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  applications    CSRApplication[]
+  fundAllocations FundAllocation[]
+  
+  @@map("csr_profiles")
+}
+
+model Drive {
+  id              String        @id @default(cuid())
+  ngoId           String
+  ngo             NGOProfile    @relation(fields: [ngoId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String
+  cause           CauseArea
+  type            DriveType     @default(ONGROUND)
+  location        String
+  address         String?
+  coordinates     Json?         // { lat, lng }
+  
+  startAt         DateTime
+  endAt           DateTime
+  capacity        Int
+  requiredSkills  String[]
+  materialsNeeded String[]
+  
+  status          DriveStatus   @default(DRAFT)
+  
+  // Contact person
+  pocName         String
+  pocEmail        String
+  pocMobile       String
+  
+  // Rich content
+  images          String[]      // Array of image URLs
+  documents       String[]      // Array of document URLs
+  
+  // Outcomes
+  beneficiariesCount  Int?
+  outcomesMetrics     Json?     // Flexible metrics object
+  impactStory         String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  registrations   Registration[]
+  reviews         Review[]
+  applications    CSRApplication[]
+  certificates    Certificate[]
+  
+  @@map("drives")
+}
+
+model Registration {
+  id            String             @id @default(cuid())
+  volunteerId   String
+  volunteer     User               @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+  driveId       String
+  drive         Drive              @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  
+  status        RegistrationStatus @default(REGISTERED)
+  
+  checkinTime   DateTime?
+  checkoutTime  DateTime?
+  verifiedHours Float?             // Hours verified by NGO
+  
+  qrCode        String?            // QR code for check-in
+  
+  registeredAt  DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  
+  // Relations
+  certificate   Certificate?
+  
+  @@unique([volunteerId, driveId])
+  @@map("registrations")
+}
+
+model Review {
+  id               String     @id @default(cuid())
+  volunteerId      String
+  volunteer        User       @relation(fields: [volunteerId], references: [id], onDelete: Cascade)
+  ngoId            String
+  ngo              NGOProfile @relation(fields: [ngoId], references: [id], onDelete: Cascade)
+  driveId          String?
+  drive            Drive?     @relation(fields: [driveId], references: [id], onDelete: SetNull)
+  
+  // Ratings (1-5)
+  coordinationRating  Int
+  executionRating     Int
+  alignmentRating     Int
+  impactRating        Int
+  
+  comment          String?
+  isPublic         Boolean    @default(true)
+  isFlagged        Boolean    @default(false)
+  
+  // NGO Response
+  ngoResponse      String?
+  respondedAt      DateTime?
+  
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  
+  @@map("reviews")
+}
+
+model Certificate {
+  id             String       @id @default(cuid())
+  registrationId String       @unique
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  driveId        String
+  drive          Drive        @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  
+  certificateUrl String       // URL to generated certificate PDF
+  qrCodeUrl      String       // QR code image URL
+  verificationHash String     @unique // Hash for verification
+  
+  issuedAt       DateTime     @default(now())
+  
+  @@map("certificates")
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String
+  icon        String      // Icon identifier or URL
+  criteria    Json        // Criteria for earning badge
+  
+  createdAt   DateTime    @default(now())
+  
+  // Relations
+  userBadges  UserBadge[]
+  
+  @@map("badges")
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId   String
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  
+  earnedAt  DateTime @default(now())
+  
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+model Referral {
+  id             String   @id @default(cuid())
+  referrerId     String
+  referrer       User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeId      String
+  referee        User     @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
+  
+  status         String   @default("JOINED") // JOINED, COMPLETED_DRIVE
+  rewardGranted  Boolean  @default(false)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@unique([referrerId, refereeId])
+  @@map("referrals")
+}
+
+model CSRApplication {
+  id           String            @id @default(cuid())
+  ngoId        String
+  ngo          NGOProfile        @relation(fields: [ngoId], references: [id], onDelete: Cascade)
+  csrPartnerId String
+  csrPartner   CSRProfile        @relation(fields: [csrPartnerId], references: [id], onDelete: Cascade)
+  driveId      String?
+  drive        Drive?            @relation(fields: [driveId], references: [id], onDelete: SetNull)
+  
+  title        String
+  description  String
+  proposal     String            // Detailed proposal
+  budgetAmount Float
+  milestones   Json              // Array of milestone objects
+  
+  status       ApplicationStatus @default(DRAFT)
+  
+  submittedAt  DateTime?
+  reviewedAt   DateTime?
+  fundedAt     DateTime?
+  completedAt  DateTime?
+  
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  
+  // Relations
+  allocations  FundAllocation[]
+  
+  @@map("csr_applications")
+}
+
+model FundAllocation {
+  id            String          @id @default(cuid())
+  applicationId String
+  application   CSRApplication  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  csrPartnerId  String
+  csrPartner    CSRProfile      @relation(fields: [csrPartnerId], references: [id], onDelete: Cascade)
+  
+  amount        Float
+  allocatedAt   DateTime        @default(now())
+  utilizationReport Json?        // Usage and impact report
+  
+  @@map("fund_allocations")
+}
+
+model AllocationScore {
+  id            String     @id @default(cuid())
+  ngoId         String
+  ngo           NGOProfile @relation(fields: [ngoId], references: [id], onDelete: Cascade)
+  
+  // Score components (0-100 each)
+  avgRatingScore          Float @default(0)
+  volunteerEngagementScore Float @default(0)
+  impactMetricsScore      Float @default(0)
+  timelyReportingScore    Float @default(0)
+  profileCompletenessScore Float @default(0)
+  
+  // Composite score (0-100)
+  compositeScore   Float    @default(0)
+  
+  // Override capability
+  overriddenBy     String?
+  overrideReason   String?
+  overrideScore    Float?
+  
+  lastCalculated   DateTime @default(now())
+  
+  @@map("allocation_scores")
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type         String   // KYC, Business Registration, etc.
+  name         String
+  url          String
+  mimeType     String
+  size         Int
+  
+  isVerified   Boolean  @default(false)
+  verifiedBy   String?
+  verifiedAt   DateTime?
+  
+  uploadedAt   DateTime @default(now())
+  
+  @@map("documents")
+}
+
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  
+  updatedAt DateTime @updatedAt
+  
+  @@map("system_settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  resource  String
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  
+  createdAt DateTime @default(now())
+  
+  @@map("audit_logs")
+}
