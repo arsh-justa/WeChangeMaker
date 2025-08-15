@@ -13,6 +13,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx lib/seed-data.ts",
     "db:studio": "prisma studio",
+    "db:update": "tsx scripts/update-data.ts",
     "type-check": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch"

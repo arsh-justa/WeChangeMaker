@@ -8,6 +8,7 @@ import Footer from '@/components/layout/footer'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   title: 'WeChangeMakers - Empowering Every Act of Kindness',
   description: 'Turn every hour into impact. Discover drives, track your contribution, and get recognized. Join thousands of volunteers making a real difference in communities across India.',
   keywords: 'volunteering, NGO, CSR, social impact, community service, India, volunteer platform',
