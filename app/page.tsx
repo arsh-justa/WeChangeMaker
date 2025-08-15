@@ -353,17 +353,17 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/auth/signup?role=volunteer">
-              <Button size="lg" variant="secondary" className="text-lg px-8 py-4">
+              <Button size="lg" variant="secondary" className="text-lg px-8 py-4 hover:bg-white hover:text-blue-600">
                 Become a Volunteer
               </Button>
             </Link>
             <Link href="/auth/signup?role=ngo">
-              <Button size="lg" variant="outline" className="text-lg px-8 py-4 text-white border-white hover:bg-white hover:text-blue-600">
+              <Button size="lg" variant="outline" className="text-lg px-8 py-4 border-white hover:bg-white hover:text-blue-600">
                 Register Your NGO
               </Button>
             </Link>
             <Link href="/csr">
-              <Button size="lg" variant="outline" className="text-lg px-8 py-4 text-white border-white hover:bg-white hover:text-purple-600">
+              <Button size="lg" variant="outline" className="text-lg px-8 py-4 border-white hover:bg-white hover:text-purple-600">
                 Partner for CSR
               </Button>
             </Link>

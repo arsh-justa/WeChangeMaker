@@ -36,7 +36,7 @@ export default function Navbar() {
 
   const publicNavItems = [
     { href: '/drives', label: 'Find Drives', icon: Calendar },
-    { href: '/ngos', label: 'NGOs', icon: Users },
+    { href: '/ngo/dashboard', label: 'NGOs', icon: Users },
     { href: '/impact', label: 'Impact', icon: Heart },
     { href: '/csr', label: 'CSR Partners', icon: Building2 },
   ]
